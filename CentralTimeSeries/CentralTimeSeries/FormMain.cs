@@ -257,76 +257,6 @@ namespace CentralTimeSeries
                     pa = p;
                 }
             }
-            public TimeSeries NLAAF(bool scaleFlag)
-            {
-                TimeSeries res = new TimeSeries();
-                DTW();
-                int pathLen = path_DTW.Length;
-                double[] data = new double[pathLen];
-                for (int k = 0; k < pathLen; k++)
-                {
-                    int i = path_DTW[k].pi;
-                    int j = path_DTW[k].pj;
-                    data[k] = 0.5 * (xs.data[i] + ys.data[j]);
-                }
-                if (scaleFlag)
-                {   //If scaleFlag, NLAAF is exactly SDTW
-                    res.length = xs.length;
-                    res.data = new double[xs.length];
-                    for (int k = 0; k < xs.length; k++)
-                    {
-                        int p = (k * pathLen / xs.length) + 1;
-                        res.data[k] = data[p];
-                    }
-                }
-                else
-                {
-                    res.length = pathLen;
-                    res.data = new double[pathLen];
-                    for (int k = 0; k < pathLen; k++)
-                        res.data[k] = data[k];
-                }
-                return res;
-            }
-
-            private void DBA2_Step(TimeSeries seed)
-            {
-                TimeSeriesPair pair1 = new TimeSeriesPair(seed, xs);
-                TimeSeriesPair pair2 = new TimeSeriesPair(seed, ys);
-                pair1.DTW();
-                pair2.DTW();
-                int m = seed.length;
-                for (int i = 0; i < m; i++)
-                {
-                    double mean = 0.0;
-                    int n = 0;
-                    int k0 = pair1.associates[i][0];
-                    int k1 = pair1.associates[i][1];
-                    for (int k = k0; k <= k1; k++)
-                    {
-                        mean += xs.data[k];
-                        n++;
-                    }
-                    k0 = pair2.associates[i][0];
-                    k1 = pair2.associates[i][1];
-                    for (int k = k0; k <= k1; k++)
-                    {
-                        mean += ys.data[k];
-                        n++;
-                    }
-                    seed.data[i] = mean / n;
-                }
-            }
-            public TimeSeries DBA2()
-            {
-                TimeSeries seed = xs.clone();
-                for (int i = 0; i < 100; i++)
-                {
-                    DBA2_Step(seed);
-                }
-                return seed;
-            }
-
             public Matching[][] matrix_gDPDP;
             double avg(TimeSeries xs, int ia, int ib, TimeSeries ys, int ja, int jb)
             {
@@ -563,7 +493,7 @@ namespace CentralTimeSeries
             }
             public double mDPDP(
                 ArrayList samples, 
-                //ListBox lbx, int classIndex, int classCount, 
+                ListBox lbx, int classIndex, int classCount, 
                 TimeSeries seed)
             {
                 if (samples.Count == 0) return 0.0;
@@ -628,15 +558,13 @@ namespace CentralTimeSeries
                         int loopMax = (tempGroup == 1) ? 30 : 15;
                         for (int j = 0; j < loopMax; j++)
                         {
-                            error = DBAStep(seedList[i], dataList[i]);
-                            /*
+                            error = dbaStep(seedList[i], dataList[i]);
                             string line = string.Format(
                                     "class = {0:d}/{1:d}; size = {2:d}; group = {3:d}/{4:d}; loop = {5:d}; error = {6:f}, avgError = {7:f}",
                                     classIndex, classCount, dataList[i].Count, i + 1, tempGroup, j, error, error / dataList[i].Count
                                 );
                             lbx.Items.Add(line);
                             lbx.SetSelected(lbx.Items.Count - 1, true);
-                            */
                             Application.DoEvents();
                         }
                     }
@@ -695,7 +623,7 @@ namespace CentralTimeSeries
                 seed.copy(seedList[0]);
                 return error;
             }
-            public double DBAStep(TimeSeries seed, ArrayList samples)
+            public double dbaStep(TimeSeries seed, ArrayList samples)
             {
                 TimeSeriesPair[] results = new TimeSeriesPair[samples.Count];
                 double error = 0.0;
@@ -744,7 +672,7 @@ namespace CentralTimeSeries
                 double error = 0.0;
                 for (int i = 0; i < 30; i++)
                 {
-                    error = DBAStep(seed, samples);
+                    error = dbaStep(seed, samples);
                 }
                 return error;
             }
@@ -782,21 +710,6 @@ namespace CentralTimeSeries
             }
         }
 
-        private void btn_mDBA_Click(object sender, EventArgs e)
-        {
-            DataSet ds = (DataSet)datasetHash[cmbDataName.Text];
-
-            double sum = 0.0;
-            for (int i = 1; i <= ds.classCount; i++)
-            {
-                double error = ds.DBA(i);
-                lbxData.Items.Add(string.Format("i={0:d}:error={1:f}", i, error));
-                sum += error;
-            }
-            sum /= ds.dataCount;
-            lbxData.Items.Add(string.Format("average = {0:f}", sum));
-        }
-
         private void btnClear_Click(object sender, EventArgs e)
         {
             lbxData.Items.Clear();
@@ -813,14 +726,6 @@ namespace CentralTimeSeries
             lbxData.Items.Add(line);
         }
 
-        private void btnNLAAF_Click(object sender, EventArgs e)
-        {
-            TimeSeriesPair res = new TimeSeriesPair(test1, test2);
-            TimeSeries center = res.NLAAF(false);
-
-            showMessage(res, center);
-        }
-
         private void btn_gDPDP_Click(object sender, EventArgs e)
         {
             TimeSeriesPair res = new TimeSeriesPair(test1, test2);
@@ -831,17 +736,10 @@ namespace CentralTimeSeries
 
         private void btn_DBA2_Click(object sender, EventArgs e)
         {
-            TimeSeriesPair res = new TimeSeriesPair(test1, test2);
-            res.DTW();
-            TimeSeries center = res.DBA2();
-            showMessage(res, center);
         }
 
         private void btn_SDTW_Click(object sender, EventArgs e)
         {
-            TimeSeriesPair res = new TimeSeriesPair(test1, test2);
-            TimeSeries center = res.NLAAF(true);
-            showMessage(res, center);
         }
 
         private void btn_mDPDP_Click(object sender, EventArgs e)
@@ -866,8 +764,8 @@ namespace CentralTimeSeries
                 for (int j = 0; j < tryNumber; j++)
                 {
                     lbxData.Items.Add(string.Format("---------- try number = {0:d} ----------", j));
-                    //double tempError = ds.mDPDP(samples, lbxData, i, ds.classCount, seed);
-                    double tempError = ds.mDPDP(samples, seed);
+                    double tempError = ds.mDPDP(samples, lbxData, i, ds.classCount, seed);
+                    //double tempError = ds.mDPDP(samples, seed);
                     if (tempError < minError)
                         minError = tempError;
                 }
